@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Legal AI Assistant Prototype</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Use Inter font */
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Custom styles for the app */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        
+        /* Custom scrollbar for gallery and response */
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #c7c7c7; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
+        
+        /* Markdown formatting */
+        .markdown-body h1 { font-size: 1.5em; font-weight: 600; margin-top: 1.5rem; margin-bottom: 1rem; }
+        .markdown-body h2 { font-size: 1.25em; font-weight: 600; margin-top: 1.25rem; margin-bottom: 0.75rem; }
+        .markdown-body h3 { font-size: 1.1em; font-weight: 600; margin-top: 1rem; margin-bottom: 0.5rem; }
+        .markdown-body p { margin-bottom: 1rem; line-height: 1.6; }
+        .markdown-body ul { list-style-type: disc; margin-left: 2rem; margin-bottom: 1rem; }
+        .markdown-body ol { list-style-type: decimal; margin-left: 2rem; margin-bottom: 1rem; }
+        .markdown-body li { margin-bottom: 0.5rem; }
+        .markdown-body pre { background-color: #f7fafc; border: 1px solid #e2e8f0; border-radius: 0.5rem; padding: 1rem; overflow-x: auto; margin-bottom: 1rem; font-family: 'Courier New', Courier, monospace; }
+        .markdown-body code { font-family: 'Courier New', Courier, monospace; background-color: #f0f4f8; padding: 0.125rem 0.25rem; border-radius: 0.25rem; }
+        .markdown-body pre code { background-color: transparent; padding: 0; }
+        .markdown-body blockquote { border-left: 4px solid #cbd5e0; padding-left: 1rem; margin-left: 0; font-style: italic; color: #4a5568; }
+        
+        /* Loading Spinner */
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .spinner { border: 4px solid rgba(255, 255, 255, 0.3); border-left-color: #ffffff; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; }
+        
+        /* Modal Fade-in */
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .modal-backdrop { animation: fadeIn 0.3s ease-out; }
+        
+        /* Tab styles */
+        .tab-btn {
+            padding: 0.75rem 1rem;
+            font-medium: 500;
+            color: #6b7280; /* text-gray-500 */
+            border-bottom: 3px solid transparent;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .tab-btn.active {
+            color: #3b82f6; /* text-blue-600 */
+            border-bottom-color: #3b82f6; /* border-blue-600 */
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Print-specific styles */
+        @media print {
+            body {
+                font-family: 'Times New Roman', Times, serif;
+                color: #000;
+                background-color: #fff;
+            }
+            /* Hide everything except the print-container */
+            body * {
+                visibility: hidden;
+            }
+            #print-container, #print-container * {
+                visibility: visible;
+            }
+            #print-container {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                margin: 0;
+                padding: 1in;
+                box-shadow: none;
+                border: none;
+            }
+            /* Re-style markdown for print */
+            #print-container .markdown-body h1 { font-size: 16pt; font-weight: bold; }
+            #print-container .markdown-body h2 { font-size: 14pt; font-weight: bold; }
+            #print-container .markdown-body h3 { font-size: 12pt; font-weight: bold; }
+            #print-container .markdown-body p, 
+            #print-container .markdown-body li { font-size: 11pt; line-height: 1.5; }
+            #print-container .markdown-body pre { background-color: #f5f5f5; border: 1px solid #ddd; padding: 10px; overflow: hidden; white-space: pre-wrap; word-wrap: break-word; }
+            #print-container .markdown-body a { color: #000; text-decoration: underline; }
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/markdown-it/14.1.0/markdown-it.min.js"></script>
+</head>
+<body class="bg-gray-100 text-gray-900 flex justify-center items-start min-h-screen p-4 pt-8 md:pt-16">
+
+    <div class="w-full max-w-4xl bg-white rounded-2xl shadow-xl p-6 md:p-8">
+        
+        <header class="mb-6 pb-4 border-b border-gray-200">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4">
+                <div>
+                    <h1 class="text-2xl font-bold text-gray-800">Legal AI Assistant</h1>
+                    <p class="text-sm text-gray-500">Powered by Gemini AI</p>
+                </div>
+                <button id="view-gallery-btn" class="mt-4 sm:mt-0 flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
+                    View Gallery
+                </button>
+            </div>
+            
+            <nav class="flex">
+                <button class="tab-btn active" data-tab="assistant">AI Assistant</button>
+                <button class="tab-btn" data-tab="templates">Templates</button>
+            </nav>
+        </header>
+
+        <div id="tab-assistant" class="tab-content active">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <div>
+                    <label for="state-select" class="block text-sm font-medium text-gray-700 mb-1">Jurisdiction (State)</label>
+                    <select id="state-select" class="w-full p-3 border border-gray-300 rounded-lg bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                        <option>Alabama</option><option>Alaska</option><option>Arizona</option><option>Arkansas</option><option>California</option>
+                        <option>Colorado</option><option>Connecticut</option><option>Delaware</option><option>Florida</option><option>Georgia</option>
+                        <option>Hawaii</option><option>Idaho</option><option value="Illinois" selected>Illinois</option><option>Indiana</option><option>Iowa</option>
+                        <option>Kansas</option><option>Kentucky</option><option>Louisiana</option><option>Maine</option><option>Maryland</option>
+                        <option>Massachusetts</option><option>Michigan</option><option>Minnesota</option><option>Mississippi</option><option>Missouri</option>
+                        <option>Montana</option><option>Nebraska</option><option>Nevada</option><option>New Hampshire</option><option>New Jersey</option>
+                        <option>New Mexico</option><option>New York</option><option>North Carolina</option><option>North Dakota</option><option>Ohio</option>
+                        <option>Oklahoma</option><option>Oregon</option><option>Pennsylvania</option><option>Rhode Island</option><option>South Carolina</option>
+                        <option>South Dakota</option><option>Tennessee</option><option>Texas</option><option>Utah</option><option>Vermont</option>
+                        <option>Virginia</option><option>Washington</option><option>West Virginia</option><option>Wisconsin</option><option>Wyoming</option>
+                    </select>
+                </div>
+                
+                <div>
+                    <label for="task-select" class="block text-sm font-medium text-gray-700 mb-1">Select Task</label>
+                    <select id="task-select" class="w-full p-3 border border-gray-300 rounded-lg bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                        <option value="Draft a Motion">Draft a Motion</option>
+                        <option value="Create a Trust">Create a Trust</option>
+                        <option value="Create a Private Membership Association">Create a Private Membership Association</option>
+                        <option value="Create an LLC">Create an LLC</option>
+                        <option value="Legal Research">Legal Research on a Topic</option>
+                        <option value="Summarize Legal Issue">Summarize a Legal Issue</option>
+                        <option value="Best opportunities in guidance moving forward">Best opportunities in guidance moving forward</option>
+                        <option value="Analyze Best Course of Action & Risks">Analyze Best Course of Action & Risks</option>
+                    </select>
+                </div>
+            </div>
+
+            <div id="dynamic-fields-container" class="mb-6 space-y-4">
+                <div id="pma-fields" class="hidden space-y-4 p-4 border border-blue-200 rounded-lg bg-blue-50">
+                    <p class="text-sm font-medium text-blue-800">PMA Draft Details</p>
+                    <div>
+                        <label for="pma-name" class="block text-sm font-medium text-gray-700 mb-1">Association Name</label>
+                        <input type="text" id="pma-name" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="E.g., 'The Wellness and Education Society'">
+                    </div>
+                    <div>
+                        <label for="pma-purpose" class="block text-sm font-medium text-gray-700 mb-1">Association Purpose</label>
+                        <textarea id="pma-purpose" rows="3" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="Describe the private purpose, mission, and activities of the association."></textarea>
+                    </div>
+                    <div>
+                        <label for="pma-founders" class="block text-sm font-medium text-gray-700 mb-1">Founder(s) / Trustee(s) Names</label>
+                        <input type="text" id="pma-founders" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="List the initial founders or trustees, separated by commas">
+                    </div>
+                </div>
+                </div>
+
+            <div class="mb-6">
+                <label for="user-prompt" class="block text-sm font-medium text-gray-700 mb-1">Details & Context</label>
+                <textarea id="user-prompt" rows="5" class="w-full p-3 border border-gray-30
