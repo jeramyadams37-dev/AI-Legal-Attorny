@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Legal AI Assistant Prototype</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Use Inter font */
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Custom styles for the app */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        
+        /* Custom scrollbar for gallery and response */
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #c7c7c7; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
+        
+        /* Markdown formatting */
+        .markdown-body h1 { font-size: 1.5em; font-weight: 600; margin-top: 1.5rem; margin-bottom: 1rem; }
+        .markdown-body h2 { font-size: 1.25em; font-weight: 600; margin-top: 1.25rem; margin-bottom: 0.75rem; }
+        .markdown-body h3 { font-size: 1.1em; font-weight: 600; margin-top: 1rem; margin-bottom: 0.5rem; }
+        .markdown-body p { margin-bottom: 1rem; line-height: 1.6; }
+        .markdown-body ul { list-style-type: disc; margin-left: 2rem; margin-bottom: 1rem; }
+        .markdown-body ol { list-style-type: decimal; margin-left: 2rem; margin-bottom: 1rem; }
+        .markdown-body li { margin-bottom: 0.5rem; }
+        .markdown-body pre { background-color: #f7fafc; border: 1px solid #e2e8f0; border-radius: 0.5rem; padding: 1rem; overflow-x: auto; margin-bottom: 1rem; font-family: 'Courier New', Courier, monospace; }
+        .markdown-body code { font-family: 'Courier New', Courier, monospace; background-color: #f0f4f8; padding: 0.125rem 0.25rem; border-radius: 0.25rem; }
+        .markdown-body pre code { background-color: transparent; padding: 0; }
+        .markdown-body blockquote { border-left: 4px solid #cbd5e0; padding-left: 1rem; margin-left: 0; font-style: italic; color: #4a5568; }
+        
+        /* Loading Spinner */
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .spinner { border: 4px solid rgba(255, 255, 255, 0.3); border-left-color: #ffffff; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; }
+        
+        /* Modal Fade-in */
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .modal-backdrop { animation: fadeIn 0.3s ease-out; }
+        
+        /* Tab styles */
+        .tab-btn {
+            padding: 0.75rem 1rem;
+            font-medium: 500;
+            color: #6b7280; /* text-gray-500 */
+            border-bottom: 3px solid transparent;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .tab-btn.active {
+            color: #3b82f6; /* text-blue-600 */
+            border-bottom-color: #3b82f6; /* border-blue-600 */
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Print-specific styles */
+        @media print {
+            body {
+                font-family: 'Times New Roman', Times, serif;
+                color: #000;
+                background-color: #fff;
+            }
+            /* Hide everything except the print-container */
+            body * {
+                visibility: hidden;
+            }
+            #print-container, #print-container * {
+                visibility: visible;
+            }
+            #print-container {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                margin: 0;
+                padding: 1in;
+                box-shadow: none;
+                border: none;
+            }
+            /* Re-style markdown for print */
+            #print-container .markdown-body h1 { font-size: 16pt; font-weight: bold; }
+            #print-container .markdown-body h2 { font-size: 14pt; font-weight: bold; }
+            #print-container .markdown-body h3 { font-size: 12pt; font-weight: bold; }
+            #print-container .markdown-body p, 
+            #print-container .markdown-body li { font-size: 11pt; line-height: 1.5; }
+            #print-container .markdown-body pre { background-color: #f5f5f5; border: 1px solid #ddd; padding: 10px; overflow: hidden; white-space: pre-wrap; word-wrap: break-word; }
+            #print-container .markdown-body a { color: #000; text-decoration: underline; }
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/markdown-it/14.1.0/markdown-it.min.js"></script>
+</head>
+<body class="bg-gray-100 text-gray-900 flex justify-center items-start min-h-screen p-4 pt-8 md:pt-16">
+
+    <div class="w-full max-w-4xl bg-white rounded-2xl shadow-xl p-6 md:p-8">
+        
+        <header class="mb-6 pb-4 border-b border-gray-200">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4">
+                <div>
+                    <h1 class="text-2xl font-bold text-gray-800">Legal AI Assistant</h1>
+                    <p class="text-sm text-gray-500">Powered by Gemini AI</p>
+                </div>
+                <button id="view-gallery-btn" class="mt-4 sm:mt-0 flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
+                    View Gallery
+                </button>
+            </div>
+            
+            <nav class="flex">
+                <button class="tab-btn active" data-tab="assistant">AI Assistant</button>
+                <button class="tab-btn" data-tab="templates">Templates</button>
+            </nav>
+        </header>
+
+        <div id="tab-assistant" class="tab-content active">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <div>
+                    <label for="state-select" class="block text-sm font-medium text-gray-700 mb-1">Jurisdiction (State)</label>
+                    <select id="state-select" class="w-full p-3 border border-gray-300 rounded-lg bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                        <option>Alabama</option><option>Alaska</option><option>Arizona</option><option>Arkansas</option><option>California</option>
+                        <option>Colorado</option><option>Connecticut</option><option>Delaware</option><option>Florida</option><option>Georgia</option>
+                        <option>Hawaii</option><option>Idaho</option><option value="Illinois" selected>Illinois</option><option>Indiana</option><option>Iowa</option>
+                        <option>Kansas</option><option>Kentucky</option><option>Louisiana</option><option>Maine</option><option>Maryland</option>
+                        <option>Massachusetts</option><option>Michigan</option><option>Minnesota</option><option>Mississippi</option><option>Missouri</option>
+                        <option>Montana</option><option>Nebraska</option><option>Nevada</option><option>New Hampshire</option><option>New Jersey</option>
+                        <option>New Mexico</option><option>New York</option><option>North Carolina</option><option>North Dakota</option><option>Ohio</option>
+                        <option>Oklahoma</option><option>Oregon</option><option>Pennsylvania</option><option>Rhode Island</option><option>South Carolina</option>
+                        <option>South Dakota</option><option>Tennessee</option><option>Texas</option><option>Utah</option><option>Vermont</option>
+                        <option>Virginia</option><option>Washington</option><option>West Virginia</option><option>Wisconsin</option><option>Wyoming</option>
+                    </select>
+                </div>
+                
+                <div>
+                    <label for="task-select" class="block text-sm font-medium text-gray-700 mb-1">Select Task</label>
+                    <select id="task-select" class="w-full p-3 border border-gray-300 rounded-lg bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                        <option value="Draft a Motion">Draft a Motion</option>
+                        <option value="Create a Trust">Create a Trust</option>
+                        <option value="Create a Private Membership Association">Create a Private Membership Association</option>
+                        <option value="Create an LLC">Create an LLC</option>
+                        <option value="Legal Research">Legal Research on a Topic</option>
+                        <option value="Summarize Legal Issue">Summarize a Legal Issue</option>
+                        <option value="Best opportunities in guidance moving forward">Best opportunities in guidance moving forward</option>
+                        <option value="Analyze Best Course of Action & Risks">Analyze Best Course of Action & Risks</option>
+                    </select>
+                </div>
+            </div>
+
+            <div id="dynamic-fields-container" class="mb-6 space-y-4">
+                <div id="pma-fields" class="hidden space-y-4 p-4 border border-blue-200 rounded-lg bg-blue-50">
+                    <p class="text-sm font-medium text-blue-800">PMA Draft Details</p>
+                    <div>
+                        <label for="pma-name" class="block text-sm font-medium text-gray-700 mb-1">Association Name</label>
+                        <input type="text" id="pma-name" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="E.g., 'The Wellness and Education Society'">
+                    </div>
+                    <div>
+                        <label for="pma-purpose" class="block text-sm font-medium text-gray-700 mb-1">Association Purpose</label>
+                        <textarea id="pma-purpose" rows="3" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="Describe the private purpose, mission, and activities of the association."></textarea>
+                    </div>
+                    <div>
+                        <label for="pma-founders" class="block text-sm font-medium text-gray-700 mb-1">Founder(s) / Trustee(s) Names</label>
+                        <input type="text" id="pma-founders" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="List the initial founders or trustees, separated by commas">
+                    </div>
+                </div>
+                </div>
+
+            <div class="mb-6">
+                <label for="user-prompt" class="block text-sm font-medium text-gray-700 mb-1">Details & Context</label>
+                <textarea id="user-prompt" rows="5" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none" placeholder="Provide all relevant details, case facts, specific questions, or context..."></textarea>
+            </div>
+
+            <button id="generate-btn" class="w-full flex justify-center items-center px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                <span id="btn-text">Generate Response</span>
+                <div id="btn-spinner" class="spinner hidden"></div>
+            </button>
+
+            <div id="error-message" class="hidden mt-4 p-3 bg-red-100 text-red-700 border border-red-200 rounded-lg"></div>
+
+            <div id="response-container" class="mt-8 hidden">
+                <h2 class="text-xl font-semibold text-gray-800 mb-4">AI Generated Response</h2>
+                
+                <div id="response-actions" class="flex flex-wrap items-center gap-3 mb-4">
+                    <button id="save-gallery-btn" class="flex items-center px-4 py-2 bg-blue-50 text-blue-700 rounded-lg text-sm font-medium hover:bg-blue-100 transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>
+                        <span>Save to Gallery</span>
+                    </button>
+                    <button id="share-btn" class="flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path><polyline points="16 6 12 2 8 6"></polyline><line x1="12" y1="2" x2="12" y2="15"></line></svg>
+                        Share
+                    </button>
+                    <button id="pdf-btn" class="flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+                        Download PDF
+                    </button>
+                    <span id="copy-success" class="text-sm text-green-600 hidden">Copied to clipboard!</span>
+                </div>
+
+                <div id="print-container">
+                    <div id="response-output" class="p-4 border border-gray-200 rounded-lg bg-gray-50 max-h-[600px] overflow-y-auto custom-scrollbar markdown-body">
+                        </div>
+                </div>
+                
+                <div id="citation-container" class="mt-4 hidden">
+                    <h3 class="text-lg font-semibold text-gray-700 mb-2">Sources</h3>
+                    <div id="citation-output" class="text-sm space-y-2">
+                        </div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="tab-templates" class="tab-content">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4">Document Templates</h2>
+            <p class="text-gray-600 mb-6">Select a template to begin. This will pre-fill the AI Assistant with a detailed prompt for a high-quality draft.</p>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="p-5 border rounded-lg bg-gray-50 shadow-sm">
+                    <h3 class="font-semibold text-lg text-blue-700">Motion to...</h3>
+                    <p class="text-sm text-gray-600 mt-2 mb-4">A generic template for a court motion, such as a Motion to Dismiss, Motion for Summary Judgment, or Motion to Compel.</p>
+                    <button class="template-btn text-sm font-medium text-blue-600 hover:underline"
+                        data-task="Draft a Motion"
+                        data-prompt="Please draft a template for a [TYPE OF MOTION, e.g., 'Motion to Dismiss for Failure to State a Claim'] in [Court Name, e.g., 'the Circuit Court of Cook County'].
+
+The motion should be based on the following key arguments:
+1. [Describe the first legal or factual argument]
+2. [Describe the second legal or factual argument]
+3. [Add more arguments as needed]
+
+Please include:
+- A caption with placeholders for Plaintiff, Defendant, Case Number, and Judge.
+- A clear title for the motion.
+- An introductory paragraph stating the relief requested.
+- A section for 'Factual Background' (placeholder).
+- A section for 'Legal Standard' (placeholder).
+- A section for 'Argument', with subheadings for each key argument.
+- A 'Conclusion' summarizing the request.
+- A placeholder for the attorney's signature block and a certificate of service.">
+                        Use Template &raquo;
+                    </button>
+                </div>
+                
+                <div class="p-5 border rounded-lg bg-gray-50 shadow-sm">
+                    <h3 class="font-semibold text-lg text-blue-700">Revocable Living Trust</h3>
+                    <p class="text-sm text-gray-600 mt-2 mb-4">A foundational document for estate planning. Creates a trust to hold assets during your lifetime and distribute them upon your death.</p>
+                    <button class="template-btn text-sm font-medium text-blue-600 hover:underline"
+                        data-task="Create a Trust"
+                        data-prompt="Please draft a template for a 'Revocable Living Trust' agreement.
+
+Key parties:
+- Grantor/Settlor: [Your Name]
+- Initial Trustee: [Your Name]
+- Successor Trustee(s): [Name(s) of person(s) to take over]
+- Beneficiaries: [Name(s) of primary beneficiaries]
+
+Please include the following articles:
+1. Declaration of Trust
+2. Trust Name and Purpose
+3. Trust Property (with a placeholder for Schedule A)
+4. Rights and Powers of the Grantor (including revocation/amendment)
+5. Trustee Provisions (including acceptance, resignation, and powers)
+6. Distributions During Grantor's Lifetime
+7. Distributions Upon Grantor's Death (placeholder for specific bequests)
+8. General Provisions
+9. Signature and Notary blocks for the Grantor.">
+                        Use Template &raquo;
+                    </button>
+                </div>
+
+                <div class="p-5 border rounded-lg bg-gray-50 shadow-sm">
+                    <h3 class="font-semibold text-lg text-blue-700">LLC Operating Agreement</h3>
+                    <p class="text-sm text-gray-600 mt-2 mb-4">An internal document for a Limited Liability Company that outlines ownership, contributions, and operating procedures.</p>
+                    <button class="template-btn text-sm font-medium text-blue-600 hover:underline"
+                        data-task="Create an LLC"
+                        data-prompt="Please draft a template for a 'Single-Member LLC Operating Agreement'.
+
+Details:
+- LLC Name: [Name of your LLC]
+- Member: [Your Name]
+- Purpose: [Brief description of the business]
+- Registered Agent: [Name of Agent]
+- Registered Office: [Address]
+
+Please include articles for:
+1. Formation and Name
+2. Purpose
+3. Member(s) and Contributions
+4. Management (member-managed)
+5. Distributions (profits and losses)
+6. Tax Status (disregarded entity)
+7. Dissolution
+8. General Provisions and Signatures.">
+                        Use Template &raquo;
+                    </button>
+                </div>
+
+                <div class="p-5 border rounded-lg bg-gray-50 shadow-sm">
+                    <h3 class="font-semibold text-lg text-blue-700">PMA Bylaws/Articles</h3>
+                    <p class="text-sm text-gray-600 mt-2 mb-4">A foundational document (Bylaws or Articles of Association) for a Private Membership Association.</p>
+                    <button class="template-btn text-sm font-medium text-blue-600 hover:underline"
+                        data-task="Create a Private Membership Association"
+                        data-prompt="Please draft a template for the 'Bylaws / Articles of Association' for a Private Membership Association.
+
+I will provide the Name, Purpose, and Founders in the dynamic fields.
+
+Please include articles for:
+1. Name and Principal Location
+2. Declaration of Private Status and Purpose
+3. Membership (how to join, qualifications, rights)
+4. Board of Trustees/Directors (selection, powers, duties)
+5. Meetings (of members and trustees)
+6. General Provisions (amendments, dissolution)
+7. Signature blocks for the founding trustees/directors.
+
+Emphasize that this is a private association and not open to the public.">
+                        Use Template &raquo;
+                    </button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <div id="gallery-modal" class="hidden fixed inset-0 z-50 overflow-auto bg-gray-800 bg-opacity-75 modal-backdrop flex justify-center items-center p-4">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] flex flex-col">
+            <div class="flex justify-between items-center p-6 border-b border-gray-200">
+                <h2 class="text-xl font-bold text-gray-800">Saved Query Gallery</h2>
+                <button id="close-gallery-btn" class="text-gray-400 hover:text-gray-600">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+            </div>
+            <div id="gallery-list" class="p-6 overflow-y-auto custom-scrollbar space-y-4">
+                </div>
+        </div>
+    </div>
+    
+    <script>
+        // Initialize Markdown-it parser
+        const md = window.markdownit();
+
+        // --- DOM Element Selectors ---
+        const tabButtons = document.querySelectorAll('.tab-btn');
+        const tabContents = document.querySelectorAll('.tab-content');
+        const stateSelect = document.getElementById('state-select');
+        const taskSelect = document.getElementById('task-select');
+        const userPrompt = document.getElementById('user-prompt');
+        const generateBtn = document.getElementById('generate-btn');
+        const btnText = document.getElementById('btn-text');
+        const btnSpinner = document.getElementById('btn-spinner');
+        const responseContainer = document.getElementById('response-container');
+        const responseOutput = document.getElementById('response-output');
+        const errorMessage = document.getElementById('error-message');
+        
+        // Dynamic Fields
+        const pmaFieldsContainer = document.getElementById('pma-fields');
+
+        // Response Actions
+        const saveGalleryBtn = document.getElementById('save-gallery-btn');
+        const shareBtn = document.getElementById('share-btn');
+        const pdfBtn = document.getElementById('pdf-btn');
+        const copySuccess = document.getElementById('copy-success');
+
+        // Citations
+        const citationContainer = document.getElementById('citation-container');
+        const citationOutput = document.getElementById('citation-output');
+        
+        // Gallery Modal
+        const viewGalleryBtn = document.getElementById('view-gallery-btn');
+        const galleryModal = document.getElementById('gallery-modal');
+        const closeGalleryBtn = document.getElementById('close-gallery-btn');
+        const galleryList = document.getElementById('gallery-list');
+        
+        // Templates
+        const templateButtons = document.querySelectorAll('.template-btn');
+
+        // --- State Variables ---
+        let currentResponse = ""; // Stores the raw Markdown response
+        let galleryDB = JSON.parse(localStorage.getItem('legalAIGallery')) || [];
+
+        // --- Event Listeners ---
+
+        // 1. Tab Navigation
+        tabButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                // Deactivate all
+                tabButtons.forEach(btn => btn.classList.remove('active'));
+                tabContents.forEach(content => content.classList.remove('active'));
+                
+                // Activate clicked
+                button.classList.add('active');
+                const tabId = button.getAttribute('data-tab');
+                document.getElementById(`tab-${tabId}`).classList.add('active');
+            });
+        });
+
+        // 2. Task Dropdown (to show/hide dynamic fields)
+        taskSelect.addEventListener('change', () => {
+            const selectedTask = taskSelect.value;
+            // Hide all dynamic fields first
+            pmaFieldsContainer.classList.add('hidden');
+
+            // Show fields based on selection
+            if (selectedTask === 'Create a Private Membership Association') {
+                pmaFieldsContainer.classList.remove('hidden');
+            }
+            // Add more 'else if' blocks here for other tasks (e.g., Trust, LLC)
+        });
+
+        // 3. Template Buttons
+        templateButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                const task = button.getAttribute('data-task');
+                const prompt = button.getAttribute('data-prompt');
+                
+                // Set the task dropdown
+                taskSelect.value = task;
+                
+                // Trigger change event to show/hide dynamic fields
+                taskSelect.dispatchEvent(new Event('change'));
+                
+                // Set the prompt
+                userPrompt.value = prompt;
+                
+                // Switch back to the Assistant tab
+                document.querySelector('.tab-btn[data-tab="assistant"]').click();
+                
+                // Scroll to the top
+                window.scrollTo(0, 0);
+            });
+        });
+
+        // 4. Generate Button
+        generateBtn.addEventListener('click', handleGenerate);
+
+        // 5. Save to Gallery Button
+        saveGalleryBtn.addEventListener('click', () => {
+            const state = stateSelect.value;
+            const task = taskSelect.value;
+            const prompt = userPrompt.value;
+            
+            const galleryEntry = {
+                id: new Date().toISOString(),
+                state: state,
+                task: task,
+                prompt: prompt,
+                response: currentResponse // Save the raw Markdown
+            };
+            
+            // Add to the beginning of the array
+            galleryDB.unshift(galleryEntry);
+            // Save to localStorage
+            localStorage.setItem('legalAIGallery', JSON.stringify(galleryDB));
+            
+            // Update button text to show success
+            saveGalleryBtn.querySelector('span').textContent = 'Saved!';
+            saveGalleryBtn.classList.add('bg-green-100', 'text-green-700');
+            setTimeout(() => {
+                saveGalleryBtn.querySelector('span').textContent = 'Save to Gallery';
+                saveGalleryBtn.classList.remove('bg-green-100', 'text-green-700');
+            }, 2000);
+        });
+        
+        // 6. View Gallery Button
+        viewGalleryBtn.addEventListener('click', () => {
+            renderGallery();
+            galleryModal.classList.remove('hidden');
+        });
+        
+        // 7. Close Gallery Button
+        closeGalleryBtn.addEventListener('click', () => {
+            galleryModal.classList.add('hidden');
+        });
+
+        // 8. Download PDF Button
+        pdfBtn.addEventListener('click', () => {
+            window.print(); // Uses the @media print styles
+        });
+        
+        // 9. Share/Copy Button
+        shareBtn.addEventListener('click', () => {
+            // Simple copy to clipboard
+            navigator.clipboard.writeText(currentResponse).then(() => {
+                copySuccess.classList.remove('hidden');
+                setTimeout(() => {
+                    copySuccess.classList.add('hidden');
+                }, 2000);
+            }).catch(err => {
+                console.error('Failed to copy text: ', err);
+            });
+        });
+
+        // --- Core Functions ---
+
+        /**
+         * Main function to handle the "Generate" click.
+         * This is where we will simulate the AI workflow.
+         */
+        async function handleGenerate() {
+            const state = stateSelect.value;
+            const task = taskSelect.value;
+            const prompt = userPrompt.value;
+
+            // --- Validation ---
+            if (!state || !task || !prompt) {
+                showError('Please fill out all fields: Jurisdiction, Task, and Details.');
+                return;
+            }
+            hideError();
+            
+            // --- UI Loading State ---
+            toggleLoading(true);
+
+            // --- GATHER DYNAMIC FIELDS ---
+            let pmaDetails = {};
+            if (task === 'Create a Private Membership Association') {
+                pmaDetails = {
+                    name: document.getElementById('pma-name').value,
+                    purpose: document.getElementById('pma-purpose').value,
+                    founders: document.getElementById('pma-founders').value,
+                };
+            }
+
+            // --- SIMULATE AI WORKFLOW (Search, Summarize, Generate) ---
+            // In a real app, this is where you'd make an API call to me (Gemini).
+            // For this prototype, we will simulate the delay and response.
+            
+            // This is the prompt we would send to the AI
+            const fullPrompt = `
+                User Request:
+                - Task: ${task}
+                - Jurisdiction: ${state}
+                - Details: ${prompt}
+                
+                ${task === 'Create a Private Membership Association' ? 
+                `PMA-Specific Data:
+                - Name: ${pmaDetails.name}
+                - Purpose: ${pmaDetails.purpose}
+                - Founders: ${pmaDetails.founders}` : ''}
+                
+                Please perform a live search for the relevant statutes, case law, and risks.
+                Then, summarize the findings and generate the requested output.
+                Include citations for your sources.
+            `;
+            
+            console.log("--- Sending to AI (Simulation) ---");
+            console.log(fullPrompt);
+
+            // Simulate a 2.5 second network delay
+            await new Promise(resolve => setTimeout(resolve, 2500));
+
+            // --- SIMULATED AI RESPONSE (This is what I would generate) ---
+            const simulatedRawMarkdown = `
+# AI Response: ${task}
+**Jurisdiction:** ${state}
+
+Based on your request, I have performed a simulated search for relevant information regarding **'${task}'** in **${state}**.
+
+## 1. Executive Summary & Best Course of Action
+Here is a brief summary of the key findings and recommended next steps. For a task like '${task}', the primary considerations are [Simulated Key Consideration 1] and [Simulated Key Consideration 2].
+
+## 2. Detailed Analysis / Draft
+Below is the core generated content you requested.
+
+### Draft: Articles of Association for ${pmaDetails.name || '[PMA Name]'}
+*(This draft is for informational purposes only and does not constitute legal advice.)*
+
+**ARTICLE I: NAME**
+The name of this Private Membership Association shall be **${pmaDetails.name || '[Name of Association]'}**.
+
+**ARTICLE II: PURPOSE**
+The purpose of this association is to:
+> ${pmaDetails.purpose || '[Purpose of Association as described in prompt]'}
+
+**ARTICLE III: FOUNDERS**
+The founding trustees/directors of this association are:
+- ${pmaDetails.founders || '[List of Founders]'}
+
+## 3. Identified Risks & Considerations
+When proceeding with this course of action, you must be aware of the following risks:
+* **Risk 1:** Potential for regulatory scrutiny from the ${state} Attorney General's office.
+* **Risk 2:** Issues related to tax-exempt status if not structured properly.
+* **Risk 3:** Liability concerns for the founders/trustees.
+
+---
+*Disclaimer: This is a simulated response. The information provided is for illustrative purposes only and does not constitute legal, financial, or professional advice. You must consult with a qualified professional in your jurisdiction.*
+            `;
+            
+            const simulatedCitations = [
+                { title: `Simulated ${state} Statute § 123-45.6`, url: '#' },
+                { title: `Simulated Case: Doe v. ${state} (2023)`, url: '#' },
+                { title: `Simulated Article: 'Top 5 Risks of ${task}'`, url: '#' }
+            ];
+            
+            // --- Update UI with Response ---
+            currentResponse = simulatedRawMarkdown; // Save raw markdown
+            responseOutput.innerHTML = md.render(currentResponse); // Rendered HTML
+            
+            // Update Citations
+            citationOutput.innerHTML = ''; // Clear old citations
+            simulatedCitations.forEach(cite => {
+                const citeEl = document.createElement('a');
+                citeEl.href = cite.url;
+                citeEl.target = '_blank';
+                citeEl.className = 'block text-blue-600 hover:underline truncate';
+                citeEl.textContent = `[source] ${cite.title}`; // Simplified citation
+                citationOutput.appendChild(citeEl);
+            });
+            
+            // Show the containers
+            citationContainer.classList.remove('hidden');
+            responseContainer.classList.remove('hidden');
+            
+            // --- UI Loading Finished ---
+            toggleLoading(false);
+        }
+        
+        /**
+         * Renders the saved gallery items into the modal.
+         */
+        function renderGallery() {
+            galleryList.innerHTML = ''; // Clear existing list
+            
+            if (galleryDB.length === 0) {
+                galleryList.innerHTML = '<p class="text-gray-500">Your saved gallery is empty. Save a response to see it here.</p>';
+                return;
+            }
+            
+            galleryDB.forEach(entry => {
+                const el = document.createElement('div');
+                el.className = 'p-4 border border-gray-200 rounded-lg bg-gray-50';
+                
+                const title = `
+                    <div class="flex justify-between items-center mb-3">
+                        <h3 class="font-semibold text-lg text-blue-700">${entry.task}</h3>
+                        <span class="text-sm font-medium text-gray-600 bg-gray-200 px-2 py-1 rounded">${entry.state}</span>
+                    </div>
+                `;
+                
+                const prompt = `<p class="text-sm text-gray-600 mb-4 truncate"><strong>Prompt:</strong> ${entry.prompt.substring(0, 150)}...</p>`;
+                
+                const buttons = `
+                    <div class="flex gap-3">
+                        <button class="gallery-load-btn text-sm font-medium text-blue-600 hover:underline" data-id="${entry.id}">Load in Assistant</button>
+                        <button class="gallery-delete-btn text-sm font-medium text-red-600 hover:underline" data-id="${entry.id}">Delete</button>
+                    </div>
+                `;
+                
+                el.innerHTML = title + prompt + buttons;
+                galleryList.appendChild(el);
+            });
+            
+            // Add event listeners for the new buttons
+            document.querySelectorAll('.gallery-load-btn').forEach(btn => {
+                btn.addEventListener('click', loadFromGallery);
+            });
+            document.querySelectorAll('.gallery-delete-btn').forEach(btn => {
+                btn.addEventListener('click', deleteFromGallery);
+            });
+        }
+        
+        /**
+         * Loads a saved item from the gallery back into the main form.
+         */
+        function loadFromGallery(e) {
+            const id = e.target.getAttribute('data-id');
+            const entry = galleryDB.find(item => item.id === id);
+            
+            if (entry) {
+                // 1. Load data into form
+                stateSelect.value = entry.state;
+                taskSelect.value = entry.task;
+                userPrompt.value = entry.prompt;
+                
+                // 2. Trigger task change to show/hide dynamic fields
+                taskSelect.dispatchEvent(new Event('change'));
+                
+                // 3. Load response into response area
+                currentResponse = entry.response;
+                responseOutput.innerHTML = md.render(currentResponse);
+                responseContainer.classList.remove('hidden');
+                
+                // 4. Close modal and switch to assistant tab
+                galleryModal.classList.add('hidden');
+                document.querySelector('.tab-btn[data-tab="assistant"]').click();
+            }
+        }
+        
+        /**
+         * Deletes an item from the gallery.
+         */
+        function deleteFromGallery(e) {
+            const id = e.target.getAttribute('data-id');
+            // Filter out the item
+            galleryDB = galleryDB.filter(item => item.id !== id);
+            // Update localStorage
+            localStorage.setItem('legalAIGallery', JSON.stringify(galleryDB));
+            // Re-render the gallery list
+            renderGallery();
+        }
+        
+        // --- Utility Functions ---
+        
+        function toggleLoading(isLoading) {
+            if (isLoading) {
+                btnText.classList.add('hidden');
+                btnSpinner.classList.remove('hidden');
+                generateBtn.disabled = true;
+                generateBtn.classList.add('opacity-75', 'cursor-not-allowed');
+            } else {
+                btnText.classList.remove('hidden');
+                btnSpinner.classList.add('hidden');
+                generateBtn.disabled = false;
+                generateBtn.classList.remove('opacity-75', 'cursor-not-allowed');
+            }
+        }
+        
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.classList.remove('hidden');
+        }
+        
+        function hideError() {
+            errorMessage.classList.add('hidden');
+        }
+    
+    </script>
+    
+</body>
+</html>
